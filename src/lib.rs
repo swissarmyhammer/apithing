@@ -152,10 +152,10 @@
 pub trait ApiOperation<C, P> {
     /// The type returned by a successful operation execution.
     type Output;
-    
+
     /// The error type returned when an operation fails.
     type Error;
-    
+
     /// Execute the API operation with the given context and properties.
     ///
     /// # Parameters
@@ -232,7 +232,10 @@ mod tests {
             type Output = TestOutput;
             type Error = TestError;
 
-            fn execute(context: &mut TestContext, props: &TestProps) -> Result<Self::Output, Self::Error> {
+            fn execute(
+                context: &mut TestContext,
+                props: &TestProps,
+            ) -> Result<Self::Output, Self::Error> {
                 if props.value.is_empty() {
                     return Err(TestError::EmptyValue);
                 }
@@ -246,8 +249,10 @@ mod tests {
         }
 
         let mut context = TestContext { counter: 0 };
-        let props = TestProps { value: "test".to_string() };
-        
+        let props = TestProps {
+            value: "test".to_string(),
+        };
+
         let result = TestOperation::execute(&mut context, &props);
         assert!(result.is_ok());
         let output = result.unwrap();
@@ -278,7 +283,10 @@ mod tests {
             type Output = ();
             type Error = TestError;
 
-            fn execute(_context: &mut TestContext, props: &TestProps) -> Result<Self::Output, Self::Error> {
+            fn execute(
+                _context: &mut TestContext,
+                props: &TestProps,
+            ) -> Result<Self::Output, Self::Error> {
                 if props.should_fail {
                     Err(TestError::Failure)
                 } else {
@@ -289,7 +297,7 @@ mod tests {
 
         let mut context = TestContext;
         let props = TestProps { should_fail: true };
-        
+
         let result = FailingOperation::execute(&mut context, &props);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), TestError::Failure);
@@ -327,14 +335,17 @@ mod tests {
             type Output = CacheResult;
             type Error = CacheError;
 
-            fn execute(context: &mut AppContext, props: &CacheProps) -> Result<Self::Output, Self::Error> {
+            fn execute(
+                context: &mut AppContext,
+                props: &CacheProps,
+            ) -> Result<Self::Output, Self::Error> {
                 if props.key.is_empty() {
                     return Err(CacheError::InvalidKey);
                 }
 
                 context.request_count += 1;
                 let previous = context.cache.insert(props.key.clone(), props.value.clone());
-                
+
                 Ok(CacheResult {
                     cached: true,
                     previous_value: previous,
@@ -357,8 +368,9 @@ mod tests {
         assert!(output.cached);
         assert_eq!(output.previous_value, None);
         assert_eq!(context.request_count, 1);
-        assert_eq!(context.cache.get("test_key"), Some(&"test_value".to_string()));
+        assert_eq!(
+            context.cache.get("test_key"),
+            Some(&"test_value".to_string())
+        );
     }
 }
-
-
