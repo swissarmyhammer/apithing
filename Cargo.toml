@@ -1,0 +1,13 @@
+[package]
+name = "apithing"
+version = "0.1.0"
+edition = "2021"
+description = "A standardized API approach based on content and prop traits"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/wballard/apithing"
+authors = ["William Ballard <wballard@gmail.com>"]
+categories = ["development-tools", "api-bindings"]
+keywords = ["api", "traits", "framework", "context", "props"]
+
+
+[dependencies]
