@@ -12,17 +12,19 @@
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn test_crate_compiles() {
-        // Basic test to ensure the crate compiles and tests can run
-        assert_eq!(2 + 2, 4);
+        // Basic test to verify the crate compiles and runs
+        assert!(true);
     }
 
     #[test]
-    fn test_documentation_exists() {
-        // Verify that the crate has proper documentation structure
-        // This test will pass as long as the module compiles
-        assert!(true);
+    fn test_documentation_is_accessible() {
+        // Verify crate level documentation is accessible
+        // This test ensures the lib.rs structure is valid
+        assert_eq!(env!("CARGO_PKG_NAME"), "apithing");
+        assert_eq!(env!("CARGO_PKG_VERSION"), "0.1.0");
     }
 }
+
+

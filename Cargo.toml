@@ -8,6 +8,6 @@ repository = "https://github.com/wballard/apithing"
 authors = ["William Ballard <wballard@gmail.com>"]
 categories = ["development-tools", "api-bindings"]
 keywords = ["api", "traits", "framework", "context", "props"]
-readme = "README.md"
+
 
 [dependencies]
