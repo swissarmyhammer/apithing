@@ -2,11 +2,10 @@
 
 A standardized API approach based on content and prop traits.
 
-[![CI](https://github.com/wballard/apithing/workflows/CI/badge.svg)](https://github.com/wballard/apithing/actions)
-[![Security Audit](https://github.com/wballard/apithing/workflows/Security/badge.svg)](https://github.com/wballard/apithing/actions)
+[![CI](https://github.com/swissarmyhammer/apithing/workflows/CI/badge.svg)](https://github.com/swissarmyhammer/apithing/actions)
 [![Crates.io](https://img.shields.io/crates/v/apithing.svg)](https://crates.io/crates/apithing)
 [![Documentation](https://docs.rs/apithing/badge.svg)](https://docs.rs/apithing)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/wballard/apithing#license)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/swissarmyhammer/apithing#license)
 
 ## Overview
 
@@ -81,34 +80,3 @@ cargo run --example basic_usage
 cargo run --example executor_pattern
 cargo run --example advanced_patterns
 ```
-
-## API Documentation
-
-Complete API documentation is available at [docs.rs/apithing](https://docs.rs/apithing).
-
-### Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/wballard/apithing.git
-cd apithing
-
-# Run tests
-cargo test
-
-# Run examples
-cargo run --example basic_usage
-
-# Check formatting and linting
-cargo fmt --check
-cargo clippy -- -D warnings
-
-# Run security audit
-cargo audit
-```
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----

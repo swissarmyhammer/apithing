@@ -29,19 +29,22 @@ fn format_timestamp(timestamp: u64) -> String {
     let hours = seconds_in_day / SECONDS_PER_HOUR;
     let minutes = (seconds_in_day % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE;
     let seconds = seconds_in_day % SECONDS_PER_MINUTE;
-    
+
     // Approximate date calculation for demo (simplified, not accounting for leap years)
     let mut year = UNIX_EPOCH_YEAR;
     let mut remaining_days = days_since_epoch;
-    
+
     // Skip forward to approximately the right year
     year += remaining_days / DAYS_PER_YEAR;
     remaining_days %= DAYS_PER_YEAR;
-    
+
     let month = (remaining_days / DAYS_PER_MONTH) + 1;
     let day = (remaining_days % DAYS_PER_MONTH) + 1;
-    
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hours, minutes, seconds)
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
 }
 
 // Simple User and Product APIs for this example
@@ -131,10 +134,7 @@ impl ApiOperation<AppContext, CreateUserProps> for CreateUser {
     type Output = User;
     type Error = UserError;
 
-    fn execute(
-        context: &mut AppContext,
-        parameters: &CreateUserProps,
-    ) -> Result<User, UserError> {
+    fn execute(context: &mut AppContext, parameters: &CreateUserProps) -> Result<User, UserError> {
         if !parameters.email.contains('@') {
             return Err(UserError::InvalidEmail);
         }
@@ -158,10 +158,7 @@ impl ApiOperation<AppContext, FindUserProps> for FindUser {
     type Output = User;
     type Error = UserError;
 
-    fn execute(
-        context: &mut AppContext,
-        parameters: &FindUserProps,
-    ) -> Result<User, UserError> {
+    fn execute(context: &mut AppContext, parameters: &FindUserProps) -> Result<User, UserError> {
         // Look for user in cache first
         let cache_key = format!("user_{}", parameters.id);
         if let Some(cache_value) = context.cache().get(&cache_key) {
@@ -174,7 +171,7 @@ impl ApiOperation<AppContext, FindUserProps> for FindUser {
                 });
             }
         }
-        
+
         // User not found in cache
         Err(UserError::NotFound)
     }
@@ -191,7 +188,7 @@ impl ApiOperation<AppContext, CreateProductProps> for CreateProduct {
         if parameters.price <= 0.0 || parameters.price.is_nan() {
             return Err(ProductError::InvalidPrice);
         }
-        
+
         if parameters.category.trim().is_empty() {
             return Err(ProductError::InvalidCategory);
         }
@@ -263,7 +260,7 @@ impl ApplicationContext {
             let seconds_offset = self.audit_log.len() as u64;
             let timestamp_seconds = base_time + seconds_offset;
             let timestamp = format_timestamp(timestamp_seconds);
-            
+
             self.audit_log.push(AuditEntry {
                 operation: operation.to_string(),
                 timestamp,
@@ -465,13 +462,16 @@ fn main() {
 
     // Demonstrate user lookup functionality
     println!("\n🔍 Testing user lookup functionality:");
-    let find_user_params = FindUserProps { 
-        id: validated_user.id 
+    let find_user_params = FindUserProps {
+        id: validated_user.id,
     };
-    
+
     match FindUser::execute(&mut app_context.database, &find_user_params) {
         Ok(found_user) => {
-            println!("✅ Found user in cache: {} ({})", found_user.name, found_user.email);
+            println!(
+                "✅ Found user in cache: {} ({})",
+                found_user.name, found_user.email
+            );
         }
         Err(UserError::NotFound) => {
             println!("❌ User not found in cache");
@@ -480,7 +480,7 @@ fn main() {
             println!("❌ Error finding user: {:?}", e);
         }
     }
-    
+
     // Test lookup of non-existent user
     let missing_user_params = FindUserProps { id: 999 };
     match FindUser::execute(&mut app_context.database, &missing_user_params) {

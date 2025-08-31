@@ -82,10 +82,7 @@ impl ApiOperation<AppContext, CreateUserProps> for CreateUser {
     type Output = User;
     type Error = UserError;
 
-    fn execute(
-        context: &mut AppContext,
-        parameters: &CreateUserProps,
-    ) -> Result<User, UserError> {
+    fn execute(context: &mut AppContext, parameters: &CreateUserProps) -> Result<User, UserError> {
         if !parameters.email.contains('@') {
             return Err(UserError::InvalidEmail);
         }
@@ -109,10 +106,7 @@ impl ApiOperation<AppContext, FindUserProps> for FindUser {
     type Output = User;
     type Error = UserError;
 
-    fn execute(
-        context: &mut AppContext,
-        parameters: &FindUserProps,
-    ) -> Result<User, UserError> {
+    fn execute(context: &mut AppContext, parameters: &FindUserProps) -> Result<User, UserError> {
         let cache_key = format!("user_{}", parameters.user_id);
 
         if let Some(cached_data) = context.cache().get(&cache_key) {

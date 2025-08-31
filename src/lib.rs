@@ -55,12 +55,12 @@
 //! impl ApiOperation<MyAppContext, CreateEntityParameters> for CreateEntity {
 //!     type Output = Entity;
 //!     type Error = EntityError;
-//!     
+//!
 //!     fn execute(context: &mut MyAppContext, parameters: &CreateEntityParameters) -> Result<Entity, EntityError> {
 //!         if parameters.name.is_empty() {
 //!             return Err(EntityError::ValidationFailed);
 //!         }
-//!         
+//!
 //!         let entity = Entity {
 //!             id: context.next_id(),
 //!             name: parameters.name.clone(),
@@ -88,43 +88,19 @@
 //!     Context["Context (C)<br/>• Shared state<br/>• Resources<br/>• Connections"]
 //!     Operation["ApiOperation&lt;C,P&gt;<br/>fn execute()<br/>→ Output<br/>→ Error"]
 //!     Parameters["Parameters (P)<br/>• Input params<br/>• Validation<br/>• Type safety"]
-//!     
-//!     DatabaseContext["DatabaseContext<br/>• Cache<br/>• Transactions<br/>• Connections"]
+//!
 //!     Execute["Execute&lt;C,P&gt;<br/>execute_on()<br/>(ergonomic API)"]
 //!     Props["Operation Parameters<br/>Entity Props<br/>Domain Props<br/>..."]
-//!     
+//!
 //!     ApiExecutor["ApiExecutor&lt;C&gt;<br/>• Stateful<br/>• Context mgmt<br/>• Multi-ops"]
-//!     
+//!
 //!     Context --> Operation
 //!     Parameters --> Operation
-//!     Context --> DatabaseContext
-//!     Operation --> Execute  
+//!     Operation --> Execute
 //!     Parameters --> Props
 //!     Execute --> ApiExecutor
 //! ```
 //!
-//! ## Multi-Family API Design
-//!
-//! ApiThing supports multiple API families sharing common infrastructure:
-//!
-//! ```text
-//!                    Shared DatabaseContext
-//!                   ┌─────────────────────┐
-//!                   │ • Connection Pool   │
-//!                   │ • Cache            │
-//!                   │ • Transaction Log  │
-//!                   │ • Metrics          │
-//!                   └─────────────────────┘
-//!                            │
-//!              ┌──────────────┼──────────────┐
-//!              │              │              │
-//!         Domain API      Entity API    Service API
-//!    ┌─────────────────┐ ┌─────────────┐ ┌─────────────┐
-//!    │ • Create        │ │ • Create    │ │ • Execute   │
-//!    │ • Find          │ │ • Find      │ │ • Process   │
-//!    │ • Update        │ │ • Update    │ │ • Transform │
-//!    └─────────────────┘ └─────────────┘ └─────────────┘
-//! ```
 //!
 //! This design enables:
 //! - **Context sharing**: Operations across families share resources efficiently
@@ -171,8 +147,6 @@ where
         T::execute(context, parameters)
     }
 }
-
-
 
 /// A stateful executor for API operations that maintains context across multiple calls.
 #[derive(Debug, Clone)]
@@ -447,16 +421,16 @@ mod tests {
     fn test_examples_compile() {
         // This test ensures that the examples can be compiled and their main functions work
         // We test the core functionality without running the actual main() functions
-        
+
         // Test basic_usage example concepts
         use std::collections::HashMap;
-        
+
         #[derive(Debug)]
         struct ExampleAppContext {
             transaction_count: u32,
             cache: HashMap<String, String>,
         }
-        
+
         impl ExampleAppContext {
             fn new(_connection: String) -> Self {
                 Self {
@@ -464,44 +438,44 @@ mod tests {
                     cache: HashMap::new(),
                 }
             }
-            
+
             fn increment_transaction(&mut self) {
                 self.transaction_count += 1;
             }
-            
+
             fn transaction_count(&self) -> u32 {
                 self.transaction_count
             }
-            
+
             fn cache_mut(&mut self) -> &mut HashMap<String, String> {
                 &mut self.cache
             }
         }
-        
+
         #[derive(Debug, Clone)]
         struct ExampleCreateUserProps {
             name: String,
             email: String,
         }
-        
+
         #[derive(Debug, Clone)]
         struct ExampleUser {
             id: u64,
             name: String,
             email: String,
         }
-        
+
         #[derive(Debug)]
         enum ExampleUserError {
             InvalidEmail,
         }
-        
+
         struct ExampleCreateUser;
-        
+
         impl ApiOperation<ExampleAppContext, ExampleCreateUserProps> for ExampleCreateUser {
             type Output = ExampleUser;
             type Error = ExampleUserError;
-            
+
             fn execute(
                 context: &mut ExampleAppContext,
                 parameters: &ExampleCreateUserProps,
@@ -509,29 +483,29 @@ mod tests {
                 if !parameters.email.contains('@') {
                     return Err(ExampleUserError::InvalidEmail);
                 }
-                
+
                 context.increment_transaction();
                 let user = ExampleUser {
                     id: context.transaction_count() as u64,
                     name: parameters.name.clone(),
                     email: parameters.email.clone(),
                 };
-                
+
                 let cache_key = format!("user_{}", user.id);
                 let cache_value = format!("{}:{}", user.name, user.email);
                 context.cache_mut().insert(cache_key, cache_value);
-                
+
                 Ok(user)
             }
         }
-        
+
         // Test that the example pattern works
         let mut context = ExampleAppContext::new("test_db".to_string());
         let parameters = ExampleCreateUserProps {
             name: "Test User".to_string(),
             email: "test@example.com".to_string(),
         };
-        
+
         let result = ExampleCreateUser::execute(&mut context, &parameters);
         assert!(result.is_ok());
         let user = result.unwrap();
@@ -544,13 +518,13 @@ mod tests {
     fn test_executor_pattern_example() {
         // Test that ApiExecutor works with custom contexts like in executor_pattern example
         use std::collections::HashMap;
-        
+
         #[derive(Debug)]
         struct ExecutorExampleContext {
             transaction_count: u32,
             cache: HashMap<String, String>,
         }
-        
+
         impl ExecutorExampleContext {
             fn new(_connection: String) -> Self {
                 Self {
@@ -558,44 +532,44 @@ mod tests {
                     cache: HashMap::new(),
                 }
             }
-            
+
             fn increment_transaction(&mut self) {
                 self.transaction_count += 1;
             }
-            
+
             fn transaction_count(&self) -> u32 {
                 self.transaction_count
             }
-            
+
             fn cache_mut(&mut self) -> &mut HashMap<String, String> {
                 &mut self.cache
             }
         }
-        
+
         #[derive(Debug, Clone)]
         struct ExecutorCreateUserProps {
             name: String,
             email: String,
         }
-        
+
         #[derive(Debug, Clone)]
         struct ExecutorUser {
             id: u64,
             name: String,
             email: String,
         }
-        
+
         #[derive(Debug)]
         enum ExecutorUserError {
             InvalidEmail,
         }
-        
+
         struct ExecutorCreateUser;
-        
+
         impl ApiOperation<ExecutorExampleContext, ExecutorCreateUserProps> for ExecutorCreateUser {
             type Output = ExecutorUser;
             type Error = ExecutorUserError;
-            
+
             fn execute(
                 context: &mut ExecutorExampleContext,
                 parameters: &ExecutorCreateUserProps,
@@ -603,30 +577,31 @@ mod tests {
                 if !parameters.email.contains('@') {
                     return Err(ExecutorUserError::InvalidEmail);
                 }
-                
+
                 context.increment_transaction();
                 let user = ExecutorUser {
                     id: context.transaction_count() as u64,
                     name: parameters.name.clone(),
                     email: parameters.email.clone(),
                 };
-                
+
                 let cache_key = format!("user_{}", user.id);
                 let cache_value = format!("{}:{}", user.name, user.email);
                 context.cache_mut().insert(cache_key, cache_value);
-                
+
                 Ok(user)
             }
         }
-        
+
         // Test ApiExecutor with custom context
-        let mut executor = ApiExecutor::new(ExecutorExampleContext::new("executor_test_db".to_string()));
-        
+        let mut executor =
+            ApiExecutor::new(ExecutorExampleContext::new("executor_test_db".to_string()));
+
         let parameters = ExecutorCreateUserProps {
             name: "Executor User".to_string(),
             email: "executor@example.com".to_string(),
         };
-        
+
         let result = executor.execute(ExecutorCreateUser, &parameters);
         assert!(result.is_ok());
         let user = result.unwrap();
