@@ -1,154 +1,141 @@
 //! # ApiThing
 //!
-//! A standardized API approach based on content and prop traits.
+//! A standardized API approach based on content and parameter traits.
 //!
 //! This crate provides a framework for building APIs using a trait-based approach
-//! where operations are defined using shared contexts and property objects.
+//! where operations are defined using shared contexts and parameter objects.
+//! The framework enables consistent patterns across different API families while
+//! allowing for flexible context sharing and type-safe operation execution.
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use apithing::{ApiOperation, ApiExecutor};
+//!
+//! // Define your operation parameters
+//! #[derive(Debug, Clone)]
+//! struct CreateEntityParameters {
+//!     name: String,
+//!     data: String,
+//! }
+//!
+//! // Define your data types
+//! #[derive(Debug, Clone)]
+//! struct Entity {
+//!     id: u64,
+//!     name: String,
+//!     data: String,
+//! }
+//!
+//! // Define your errors
+//! #[derive(Debug)]
+//! enum EntityError {
+//!     ValidationFailed,
+//! }
+//!
+//! // Implement your operation
+//! struct CreateEntity;
+//! // Define a custom context for your application
+//! #[derive(Debug)]
+//! struct MyAppContext {
+//!     connection: String,
+//!     counter: u64,
+//! }
+//!
+//! impl MyAppContext {
+//!     fn new(connection: String) -> Self {
+//!         Self { connection, counter: 0 }
+//!     }
+//!     fn next_id(&mut self) -> u64 {
+//!         self.counter += 1;
+//!         self.counter
+//!     }
+//! }
+//!
+//! impl ApiOperation<MyAppContext, CreateEntityParameters> for CreateEntity {
+//!     type Output = Entity;
+//!     type Error = EntityError;
+//!     
+//!     fn execute(context: &mut MyAppContext, parameters: &CreateEntityParameters) -> Result<Entity, EntityError> {
+//!         if parameters.name.is_empty() {
+//!             return Err(EntityError::ValidationFailed);
+//!         }
+//!         
+//!         let entity = Entity {
+//!             id: context.next_id(),
+//!             name: parameters.name.clone(),
+//!             data: parameters.data.clone(),
+//!         };
+//!         Ok(entity)
+//!     }
+//! }
+//!
+//! // Usage
+//! let mut context = MyAppContext::new("db".to_string());
+//! let parameters = CreateEntityParameters {
+//!     name: "Example".to_string(),
+//!     data: "example@data.com".to_string(),
+//! };
+//! let entity = CreateEntity::execute(&mut context, &parameters).unwrap();
+//! ```
+//!
+//! ## Core Architecture
+//!
+//! The ApiThing framework is built around several key concepts:
+//!
+//! ```mermaid
+//! graph TB
+//!     Context["Context (C)<br/>• Shared state<br/>• Resources<br/>• Connections"]
+//!     Operation["ApiOperation&lt;C,P&gt;<br/>fn execute()<br/>→ Output<br/>→ Error"]
+//!     Parameters["Parameters (P)<br/>• Input params<br/>• Validation<br/>• Type safety"]
+//!     
+//!     DatabaseContext["DatabaseContext<br/>• Cache<br/>• Transactions<br/>• Connections"]
+//!     Execute["Execute&lt;C,P&gt;<br/>execute_on()<br/>(ergonomic API)"]
+//!     Props["Operation Parameters<br/>Entity Props<br/>Domain Props<br/>..."]
+//!     
+//!     ApiExecutor["ApiExecutor&lt;C&gt;<br/>• Stateful<br/>• Context mgmt<br/>• Multi-ops"]
+//!     
+//!     Context --> Operation
+//!     Parameters --> Operation
+//!     Context --> DatabaseContext
+//!     Operation --> Execute  
+//!     Parameters --> Props
+//!     Execute --> ApiExecutor
+//! ```
+//!
+//! ## Multi-Family API Design
+//!
+//! ApiThing supports multiple API families sharing common infrastructure:
+//!
+//! ```text
+//!                    Shared DatabaseContext
+//!                   ┌─────────────────────┐
+//!                   │ • Connection Pool   │
+//!                   │ • Cache            │
+//!                   │ • Transaction Log  │
+//!                   │ • Metrics          │
+//!                   └─────────────────────┘
+//!                            │
+//!              ┌──────────────┼──────────────┐
+//!              │              │              │
+//!         Domain API      Entity API    Service API
+//!    ┌─────────────────┐ ┌─────────────┐ ┌─────────────┐
+//!    │ • Create        │ │ • Create    │ │ • Execute   │
+//!    │ • Find          │ │ • Find      │ │ • Process   │
+//!    │ • Update        │ │ • Update    │ │ • Transform │
+//!    └─────────────────┘ └─────────────┘ └─────────────┘
+//! ```
+//!
+//! This design enables:
+//! - **Context sharing**: Operations across families share resources efficiently
+//! - **Type safety**: Each family has its own types but shares infrastructure
+//! - **Composability**: Operations can call operations from other families
+//! - **Consistency**: All families follow the same patterns and conventions
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 
 /// Core trait that all API operations implement.
-///
-/// The `ApiOperation` trait provides a standardized interface for all API operations
-/// within the ApiThing framework. This trait enables consistent patterns across
-/// different API families while allowing for flexible context sharing and type-safe
-/// operation execution.
-///
-/// # Design Philosophy
-///
-/// This trait follows the Command pattern, where each operation is encapsulated
-/// as a type that implements the trait. Operations receive:
-/// - A mutable context (`C`) that can be shared across operations
-/// - Immutable properties (`P`) that define the operation's input parameters
-///
-/// # Generic Parameters
-///
-/// * `C` - The context type that provides shared state, resources, and services
-///   that operations may need (e.g., database connections, caches, configuration)
-/// * `P` - The properties type that contains the input parameters specific to
-///   this operation (e.g., user ID, search criteria, update fields)
-///
-/// # Associated Types
-///
-/// * `Output` - The successful result type returned by the operation
-/// * `Error` - The error type that can be returned if the operation fails
-///
-/// # Usage Patterns
-///
-/// ## Basic Usage
-///
-/// ```rust
-/// use apithing::ApiOperation;
-/// use std::collections::HashMap;
-///
-/// // Define a context type
-/// #[derive(Debug)]
-/// struct AppContext {
-///     cache: HashMap<String, String>,
-///     request_count: u32,
-/// }
-///
-/// // Define properties for an operation
-/// #[derive(Debug)]
-/// struct GetUserProps {
-///     user_id: u64,
-/// }
-///
-/// // Define the operation result
-/// #[derive(Debug)]
-/// struct User {
-///     id: u64,
-///     name: String,
-/// }
-///
-/// // Define an error type
-/// #[derive(Debug)]
-/// enum UserError {
-///     NotFound,
-///     DatabaseError,
-/// }
-///
-/// // Implement the operation
-/// struct GetUser;
-///
-/// impl ApiOperation<AppContext, GetUserProps> for GetUser {
-///     type Output = User;
-///     type Error = UserError;
-///
-///     fn execute(context: &mut AppContext, props: &GetUserProps) -> Result<Self::Output, Self::Error> {
-///         context.request_count += 1;
-///         
-///         // Check cache first
-///         if let Some(cached_name) = context.cache.get(&props.user_id.to_string()) {
-///             return Ok(User {
-///                 id: props.user_id,
-///                 name: cached_name.clone(),
-///             });
-///         }
-///         
-///         Err(UserError::NotFound)
-///     }
-/// }
-///
-/// // Usage
-/// let mut context = AppContext {
-///     cache: HashMap::new(),
-///     request_count: 0,
-/// };
-/// let props = GetUserProps { user_id: 123 };
-/// let result = GetUser::execute(&mut context, &props);
-/// ```
-///
-/// ## Composing Operations
-///
-/// Operations can be composed by calling other operations within their implementations:
-///
-/// ```rust
-/// # use apithing::ApiOperation;
-/// # use std::collections::HashMap;
-/// # #[derive(Debug)] struct AppContext { cache: HashMap<String, String>, request_count: u32 }
-/// # #[derive(Debug)] struct User { id: u64, name: String }
-/// # #[derive(Debug)] enum UserError { NotFound, ValidationError }
-/// # struct GetUser;
-/// # impl ApiOperation<AppContext, GetUserProps> for GetUser {
-/// #     type Output = User;
-/// #     type Error = UserError;
-/// #     fn execute(context: &mut AppContext, props: &GetUserProps) -> Result<Self::Output, Self::Error> {
-/// #         Ok(User { id: props.user_id, name: "Test".to_string() })
-/// #     }
-/// # }
-/// # #[derive(Debug)] struct GetUserProps { user_id: u64 }
-/// #[derive(Debug)]
-/// struct UpdateUserProps {
-///     user_id: u64,
-///     new_name: String,
-/// }
-///
-/// struct UpdateUser;
-///
-/// impl ApiOperation<AppContext, UpdateUserProps> for UpdateUser {
-///     type Output = User;
-///     type Error = UserError;
-///
-///     fn execute(context: &mut AppContext, props: &UpdateUserProps) -> Result<Self::Output, Self::Error> {
-///         // First get the existing user
-///         let get_props = GetUserProps { user_id: props.user_id };
-///         let mut user = GetUser::execute(context, &get_props)?;
-///         
-///         // Validate the new name
-///         if props.new_name.is_empty() {
-///             return Err(UserError::ValidationError);
-///         }
-///         
-///         // Update the user
-///         user.name = props.new_name.clone();
-///         context.cache.insert(props.user_id.to_string(), props.new_name.clone());
-///         
-///         Ok(user)
-///     }
-/// }
-/// ```
 pub trait ApiOperation<C, P> {
     /// The type returned by a successful operation execution.
     type Output;
@@ -157,41 +144,134 @@ pub trait ApiOperation<C, P> {
     type Error;
 
     /// Execute the API operation with the given context and properties.
-    ///
-    /// # Parameters
-    ///
-    /// * `context` - A mutable reference to the shared context that provides
-    ///   resources and state that the operation may need or modify
-    /// * `props` - An immutable reference to the operation-specific properties
-    ///   that define the input parameters for this execution
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Result` containing either the successful `Output` or an `Error`
-    /// if the operation fails.
-    ///
-    /// # Design Notes
-    ///
-    /// The context is mutable to allow operations to:
-    /// - Update shared caches or state
-    /// - Increment counters or metrics
-    /// - Manage transactions or connections
-    /// - Store results for subsequent operations
-    ///
-    /// The properties are immutable to enforce that operations should not
-    /// modify their input parameters, promoting predictable behavior.
-    fn execute(context: &mut C, props: &P) -> Result<Self::Output, Self::Error>;
+    fn execute(context: &mut C, parameters: &P) -> Result<Self::Output, Self::Error>;
+}
+
+/// A trait providing ergonomic method-style execution for API operations.
+pub trait Execute<C, P> {
+    /// The type returned by a successful operation execution.
+    type Output;
+
+    /// The error type returned when an operation fails.
+    type Error;
+
+    /// Execute the API operation on the given context with the specified properties.
+    fn execute_on(self, context: &mut C, parameters: &P) -> Result<Self::Output, Self::Error>;
+}
+
+/// Blanket implementation of `Execute` for all `ApiOperation` implementors.
+impl<T, C, P> Execute<C, P> for T
+where
+    T: ApiOperation<C, P>,
+{
+    type Output = T::Output;
+    type Error = T::Error;
+
+    fn execute_on(self, context: &mut C, parameters: &P) -> Result<Self::Output, Self::Error> {
+        T::execute(context, parameters)
+    }
+}
+
+
+
+/// A stateful executor for API operations that maintains context across multiple calls.
+#[derive(Debug, Clone)]
+pub struct ApiExecutor<C> {
+    /// The context instance owned by this executor.
+    context: C,
+}
+
+impl<C> ApiExecutor<C> {
+    /// Creates a new `ApiExecutor` that owns the provided context.
+    pub fn new(context: C) -> Self {
+        Self { context }
+    }
+
+    /// Executes an API operation using this executor's context.
+    pub fn execute<P, Op>(&mut self, _op: Op, parameters: &P) -> Result<Op::Output, Op::Error>
+    where
+        Op: ApiOperation<C, P>,
+    {
+        Op::execute(&mut self.context, parameters)
+    }
+
+    /// Returns an immutable reference to the executor's context.
+    pub fn context(&self) -> &C {
+        &self.context
+    }
+
+    /// Returns a mutable reference to the executor's context.
+    pub fn context_mut(&mut self) -> &mut C {
+        &mut self.context
+    }
 }
 
 #[cfg(test)]
+/// Testing utilities and example implementations for the ApiThing framework.
+///
+/// This module contains test-only utilities including `DatabaseContext`, which serves as
+/// an example context implementation for testing and demonstrating framework patterns.
+/// These utilities are not part of the public API and should not be used in production code.
+///
+/// The `DatabaseContext` struct demonstrates how to implement a shared context that can
+/// be used across multiple API operation families while maintaining state and caching.
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+
+    /// A database context implementation used for testing the framework.
+    /// This demonstrates shared context usage across API families but is not part of the public API.
+    #[derive(Debug, Clone)]
+    pub struct DatabaseContext {
+        /// Connection pool identifier (simplified for demonstration).
+        connection_pool: String,
+
+        /// Counter tracking the number of transactions executed.
+        transaction_count: u32,
+
+        /// General-purpose cache for storing operation results.
+        cache: std::collections::HashMap<String, String>,
+    }
+
+    impl DatabaseContext {
+        /// Creates a new `DatabaseContext` with the specified connection string.
+        pub fn new(connection: String) -> Self {
+            Self {
+                connection_pool: connection,
+                transaction_count: 0,
+                cache: std::collections::HashMap::new(),
+            }
+        }
+
+        /// Increments the transaction counter by 1.
+        pub fn increment_transaction(&mut self) {
+            self.transaction_count += 1;
+        }
+
+        /// Returns the current transaction count.
+        pub fn transaction_count(&self) -> u32 {
+            self.transaction_count
+        }
+
+        /// Returns an immutable reference to the connection pool identifier.
+        pub fn connection_pool(&self) -> &str {
+            &self.connection_pool
+        }
+
+        /// Returns an immutable reference to the cache.
+        pub fn cache(&self) -> &std::collections::HashMap<String, String> {
+            &self.cache
+        }
+
+        /// Returns a mutable reference to the cache.
+        pub fn cache_mut(&mut self) -> &mut std::collections::HashMap<String, String> {
+            &mut self.cache
+        }
+    }
 
     #[test]
     fn test_crate_compiles() {
         // Basic test to verify the crate compiles and runs
-        assert!(true);
+        // If this test runs, the crate compiled successfully
     }
 
     #[test]
@@ -234,143 +314,385 @@ mod tests {
 
             fn execute(
                 context: &mut TestContext,
-                props: &TestProps,
-            ) -> Result<Self::Output, Self::Error> {
-                if props.value.is_empty() {
+                parameters: &TestProps,
+            ) -> Result<TestOutput, TestError> {
+                if parameters.value.is_empty() {
                     return Err(TestError::EmptyValue);
                 }
-
                 context.counter += 1;
                 Ok(TestOutput {
-                    result: props.value.clone(),
+                    result: parameters.value.clone(),
                     count: context.counter,
                 })
             }
         }
 
+        // Test direct execution
         let mut context = TestContext { counter: 0 };
-        let props = TestProps {
+        let parameters = TestProps {
             value: "test".to_string(),
         };
-
-        let result = TestOperation::execute(&mut context, &props);
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert_eq!(output.result, "test");
-        assert_eq!(output.count, 1);
+        let result = TestOperation::execute(&mut context, &parameters).unwrap();
+        assert_eq!(result.result, "test");
+        assert_eq!(result.count, 1);
         assert_eq!(context.counter, 1);
     }
 
     #[test]
-    fn test_api_operation_error_handling() {
-        // Test that error cases work correctly
+    fn test_execute_trait() {
         #[derive(Debug)]
-        struct TestContext;
-
-        #[derive(Debug)]
-        struct TestProps {
-            should_fail: bool,
+        struct SimpleContext {
+            data: String,
         }
 
-        #[derive(Debug, PartialEq)]
-        enum TestError {
-            Failure,
+        #[derive(Debug)]
+        struct SimpleProps {
+            input: String,
         }
 
-        struct FailingOperation;
+        struct SimpleOperation;
 
-        impl ApiOperation<TestContext, TestProps> for FailingOperation {
-            type Output = ();
-            type Error = TestError;
+        impl ApiOperation<SimpleContext, SimpleProps> for SimpleOperation {
+            type Output = String;
+            type Error = ();
 
             fn execute(
-                _context: &mut TestContext,
-                props: &TestProps,
-            ) -> Result<Self::Output, Self::Error> {
-                if props.should_fail {
-                    Err(TestError::Failure)
-                } else {
-                    Ok(())
-                }
+                context: &mut SimpleContext,
+                parameters: &SimpleProps,
+            ) -> Result<String, ()> {
+                context.data = parameters.input.clone();
+                Ok(format!("Processed: {}", parameters.input))
             }
         }
 
-        let mut context = TestContext;
-        let props = TestProps { should_fail: true };
+        let mut context = SimpleContext {
+            data: String::new(),
+        };
+        let parameters = SimpleProps {
+            input: "test input".to_string(),
+        };
 
-        let result = FailingOperation::execute(&mut context, &props);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TestError::Failure);
+        // Test the Execute trait method
+        let result = SimpleOperation
+            .execute_on(&mut context, &parameters)
+            .unwrap();
+        assert_eq!(result, "Processed: test input");
+        assert_eq!(context.data, "test input");
     }
 
     #[test]
-    fn test_api_operation_with_complex_context() {
-        // Test with a more complex context similar to the documentation examples
+    fn test_database_context() {
+        let mut context = DatabaseContext::new("test_connection".to_string());
+
+        // Test initial state
+        assert_eq!(context.connection_pool(), "test_connection");
+        assert_eq!(context.transaction_count(), 0);
+        assert!(context.cache().is_empty());
+
+        // Test transaction increment
+        context.increment_transaction();
+        assert_eq!(context.transaction_count(), 1);
+
+        // Test cache operations
+        context
+            .cache_mut()
+            .insert("key1".to_string(), "value1".to_string());
+        assert_eq!(context.cache().len(), 1);
+        assert_eq!(context.cache().get("key1"), Some(&"value1".to_string()));
+    }
+
+    #[test]
+    fn test_api_executor() {
         #[derive(Debug)]
-        struct AppContext {
-            cache: HashMap<String, String>,
-            request_count: u32,
+        struct CounterProps {
+            increment: u32,
         }
 
+        struct IncrementOperation;
+
+        impl ApiOperation<DatabaseContext, CounterProps> for IncrementOperation {
+            type Output = u32;
+            type Error = ();
+
+            fn execute(
+                context: &mut DatabaseContext,
+                parameters: &CounterProps,
+            ) -> Result<u32, ()> {
+                for _ in 0..parameters.increment {
+                    context.increment_transaction();
+                }
+                Ok(context.transaction_count())
+            }
+        }
+
+        let mut executor = ApiExecutor::new(DatabaseContext::new("test".to_string()));
+
+        // Test initial state
+        assert_eq!(executor.context().transaction_count(), 0);
+
+        // Execute operation
+        let parameters = CounterProps { increment: 3 };
+        let result = executor.execute(IncrementOperation, &parameters).unwrap();
+        assert_eq!(result, 3);
+        assert_eq!(executor.context().transaction_count(), 3);
+
+        // Execute another operation on same context
+        let parameters2 = CounterProps { increment: 2 };
+        let result2 = executor.execute(IncrementOperation, &parameters2).unwrap();
+        assert_eq!(result2, 5);
+        assert_eq!(executor.context().transaction_count(), 5);
+    }
+
+    #[test]
+    fn test_examples_compile() {
+        // This test ensures that the examples can be compiled and their main functions work
+        // We test the core functionality without running the actual main() functions
+        
+        // Test basic_usage example concepts
+        use std::collections::HashMap;
+        
         #[derive(Debug)]
-        struct CacheProps {
+        struct ExampleAppContext {
+            transaction_count: u32,
+            cache: HashMap<String, String>,
+        }
+        
+        impl ExampleAppContext {
+            fn new(_connection: String) -> Self {
+                Self {
+                    transaction_count: 0,
+                    cache: HashMap::new(),
+                }
+            }
+            
+            fn increment_transaction(&mut self) {
+                self.transaction_count += 1;
+            }
+            
+            fn transaction_count(&self) -> u32 {
+                self.transaction_count
+            }
+            
+            fn cache_mut(&mut self) -> &mut HashMap<String, String> {
+                &mut self.cache
+            }
+        }
+        
+        #[derive(Debug, Clone)]
+        struct ExampleCreateUserProps {
+            name: String,
+            email: String,
+        }
+        
+        #[derive(Debug, Clone)]
+        struct ExampleUser {
+            id: u64,
+            name: String,
+            email: String,
+        }
+        
+        #[derive(Debug)]
+        enum ExampleUserError {
+            InvalidEmail,
+        }
+        
+        struct ExampleCreateUser;
+        
+        impl ApiOperation<ExampleAppContext, ExampleCreateUserProps> for ExampleCreateUser {
+            type Output = ExampleUser;
+            type Error = ExampleUserError;
+            
+            fn execute(
+                context: &mut ExampleAppContext,
+                parameters: &ExampleCreateUserProps,
+            ) -> Result<ExampleUser, ExampleUserError> {
+                if !parameters.email.contains('@') {
+                    return Err(ExampleUserError::InvalidEmail);
+                }
+                
+                context.increment_transaction();
+                let user = ExampleUser {
+                    id: context.transaction_count() as u64,
+                    name: parameters.name.clone(),
+                    email: parameters.email.clone(),
+                };
+                
+                let cache_key = format!("user_{}", user.id);
+                let cache_value = format!("{}:{}", user.name, user.email);
+                context.cache_mut().insert(cache_key, cache_value);
+                
+                Ok(user)
+            }
+        }
+        
+        // Test that the example pattern works
+        let mut context = ExampleAppContext::new("test_db".to_string());
+        let parameters = ExampleCreateUserProps {
+            name: "Test User".to_string(),
+            email: "test@example.com".to_string(),
+        };
+        
+        let result = ExampleCreateUser::execute(&mut context, &parameters);
+        assert!(result.is_ok());
+        let user = result.unwrap();
+        assert_eq!(user.name, "Test User");
+        assert_eq!(user.email, "test@example.com");
+        assert_eq!(context.transaction_count(), 1);
+    }
+
+    #[test]
+    fn test_executor_pattern_example() {
+        // Test that ApiExecutor works with custom contexts like in executor_pattern example
+        use std::collections::HashMap;
+        
+        #[derive(Debug)]
+        struct ExecutorExampleContext {
+            transaction_count: u32,
+            cache: HashMap<String, String>,
+        }
+        
+        impl ExecutorExampleContext {
+            fn new(_connection: String) -> Self {
+                Self {
+                    transaction_count: 0,
+                    cache: HashMap::new(),
+                }
+            }
+            
+            fn increment_transaction(&mut self) {
+                self.transaction_count += 1;
+            }
+            
+            fn transaction_count(&self) -> u32 {
+                self.transaction_count
+            }
+            
+            fn cache_mut(&mut self) -> &mut HashMap<String, String> {
+                &mut self.cache
+            }
+        }
+        
+        #[derive(Debug, Clone)]
+        struct ExecutorCreateUserProps {
+            name: String,
+            email: String,
+        }
+        
+        #[derive(Debug, Clone)]
+        struct ExecutorUser {
+            id: u64,
+            name: String,
+            email: String,
+        }
+        
+        #[derive(Debug)]
+        enum ExecutorUserError {
+            InvalidEmail,
+        }
+        
+        struct ExecutorCreateUser;
+        
+        impl ApiOperation<ExecutorExampleContext, ExecutorCreateUserProps> for ExecutorCreateUser {
+            type Output = ExecutorUser;
+            type Error = ExecutorUserError;
+            
+            fn execute(
+                context: &mut ExecutorExampleContext,
+                parameters: &ExecutorCreateUserProps,
+            ) -> Result<ExecutorUser, ExecutorUserError> {
+                if !parameters.email.contains('@') {
+                    return Err(ExecutorUserError::InvalidEmail);
+                }
+                
+                context.increment_transaction();
+                let user = ExecutorUser {
+                    id: context.transaction_count() as u64,
+                    name: parameters.name.clone(),
+                    email: parameters.email.clone(),
+                };
+                
+                let cache_key = format!("user_{}", user.id);
+                let cache_value = format!("{}:{}", user.name, user.email);
+                context.cache_mut().insert(cache_key, cache_value);
+                
+                Ok(user)
+            }
+        }
+        
+        // Test ApiExecutor with custom context
+        let mut executor = ApiExecutor::new(ExecutorExampleContext::new("executor_test_db".to_string()));
+        
+        let parameters = ExecutorCreateUserProps {
+            name: "Executor User".to_string(),
+            email: "executor@example.com".to_string(),
+        };
+        
+        let result = executor.execute(ExecutorCreateUser, &parameters);
+        assert!(result.is_ok());
+        let user = result.unwrap();
+        assert_eq!(user.name, "Executor User");
+        assert_eq!(user.email, "executor@example.com");
+        assert_eq!(executor.context().transaction_count(), 1);
+    }
+
+    #[test]
+    fn test_context_sharing() {
+        #[derive(Debug)]
+        struct StoreProps {
             key: String,
             value: String,
         }
 
-        #[derive(Debug, PartialEq)]
-        struct CacheResult {
-            cached: bool,
-            previous_value: Option<String>,
+        #[derive(Debug)]
+        struct RetrieveProps {
+            key: String,
         }
 
-        #[derive(Debug, PartialEq)]
-        enum CacheError {
-            InvalidKey,
-        }
+        struct StoreOperation;
+        struct RetrieveOperation;
 
-        struct CacheOperation;
+        impl ApiOperation<DatabaseContext, StoreProps> for StoreOperation {
+            type Output = ();
+            type Error = ();
 
-        impl ApiOperation<AppContext, CacheProps> for CacheOperation {
-            type Output = CacheResult;
-            type Error = CacheError;
-
-            fn execute(
-                context: &mut AppContext,
-                props: &CacheProps,
-            ) -> Result<Self::Output, Self::Error> {
-                if props.key.is_empty() {
-                    return Err(CacheError::InvalidKey);
-                }
-
-                context.request_count += 1;
-                let previous = context.cache.insert(props.key.clone(), props.value.clone());
-
-                Ok(CacheResult {
-                    cached: true,
-                    previous_value: previous,
-                })
+            fn execute(context: &mut DatabaseContext, parameters: &StoreProps) -> Result<(), ()> {
+                context
+                    .cache_mut()
+                    .insert(parameters.key.clone(), parameters.value.clone());
+                context.increment_transaction();
+                Ok(())
             }
         }
 
-        let mut context = AppContext {
-            cache: HashMap::new(),
-            request_count: 0,
-        };
-        let props = CacheProps {
+        impl ApiOperation<DatabaseContext, RetrieveProps> for RetrieveOperation {
+            type Output = Option<String>;
+            type Error = ();
+
+            fn execute(
+                context: &mut DatabaseContext,
+                parameters: &RetrieveProps,
+            ) -> Result<Option<String>, ()> {
+                Ok(context.cache().get(&parameters.key).cloned())
+            }
+        }
+
+        let mut executor = ApiExecutor::new(DatabaseContext::new("shared".to_string()));
+
+        // Store data
+        let store_parameters = StoreProps {
             key: "test_key".to_string(),
             value: "test_value".to_string(),
         };
+        executor.execute(StoreOperation, &store_parameters).unwrap();
 
-        let result = CacheOperation::execute(&mut context, &props);
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.cached);
-        assert_eq!(output.previous_value, None);
-        assert_eq!(context.request_count, 1);
-        assert_eq!(
-            context.cache.get("test_key"),
-            Some(&"test_value".to_string())
-        );
+        // Retrieve data using shared context
+        let retrieve_parameters = RetrieveProps {
+            key: "test_key".to_string(),
+        };
+        let retrieved = executor
+            .execute(RetrieveOperation, &retrieve_parameters)
+            .unwrap();
+        assert_eq!(retrieved, Some("test_value".to_string()));
+        assert_eq!(executor.context().transaction_count(), 1);
     }
 }

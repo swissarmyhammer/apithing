@@ -3,11 +3,27 @@ name = "apithing"
 version = "0.1.0"
 edition = "2021"
 description = "A standardized API approach based on content and prop traits"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/wballard/apithing"
+license = "MIT"
+repository = "https://github.com/swissarmyhammer/apithing"
+homepage = "https://github.com/swissarmyhammer/apithing"
+documentation = "https://docs.rs/apithing"
 authors = ["William Ballard <wballard@gmail.com>"]
 categories = ["development-tools", "api-bindings"]
 keywords = ["api", "traits", "framework", "context", "props"]
+readme = "README.md"
+rust-version = "1.70.0"
 
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
+[[example]]
+name = "executor_pattern"
+path = "examples/executor_pattern.rs"
+
+[[example]]
+name = "advanced_patterns"
+path = "examples/advanced_patterns.rs"
 
 [dependencies]
