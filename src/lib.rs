@@ -101,6 +101,28 @@
 //!     Execute --> ApiExecutor
 //! ```
 //!
+//! ## Multi-Family API Design
+//!
+//! ApiThing supports multiple API families sharing common infrastructure:
+//!
+//! ```text
+//!                    Shared DatabaseContext
+//!                   ┌─────────────────────┐
+//!                   │ • Connection Pool   │
+//!                   │ • Cache            │
+//!                   │ • Transaction Log  │
+//!                   │ • Metrics          │
+//!                   └─────────────────────┘
+//!                            │
+//!              ┌──────────────┼──────────────┐
+//!              │              │              │
+//!         Domain API      Entity API    Service API
+//!    ┌─────────────────┐ ┌─────────────┐ ┌─────────────┐
+//!    │ • Create        │ │ • Create    │ │ • Execute   │
+//!    │ • Find          │ │ • Find      │ │ • Process   │
+//!    │ • Update        │ │ • Update    │ │ • Transform │
+//!    └─────────────────┘ └─────────────┘ └─────────────┘
+//! ```
 //!
 //! This design enables:
 //! - **Context sharing**: Operations across families share resources efficiently
@@ -475,7 +497,6 @@ mod tests {
         impl ApiOperation<ExampleAppContext, ExampleCreateUserProps> for ExampleCreateUser {
             type Output = ExampleUser;
             type Error = ExampleUserError;
-
             fn execute(
                 context: &mut ExampleAppContext,
                 parameters: &ExampleCreateUserProps,
@@ -569,7 +590,6 @@ mod tests {
         impl ApiOperation<ExecutorExampleContext, ExecutorCreateUserProps> for ExecutorCreateUser {
             type Output = ExecutorUser;
             type Error = ExecutorUserError;
-
             fn execute(
                 context: &mut ExecutorExampleContext,
                 parameters: &ExecutorCreateUserProps,
