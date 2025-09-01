@@ -1,6 +1,6 @@
 # API Thing
 
-A standardized API approach based on content and prop traits.
+A standardized API approach based on context and parameter traits.
 
 [![CI](https://github.com/swissarmyhammer/apithing/workflows/CI/badge.svg)](https://github.com/swissarmyhammer/apithing/actions)
 [![Crates.io](https://img.shields.io/crates/v/apithing.svg)](https://crates.io/crates/apithing)
