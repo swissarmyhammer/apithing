@@ -73,3 +73,5 @@ cargo run --example basic_usage
 cargo run --example executor_pattern
 cargo run --example advanced_patterns
 ```
+
+🎉
