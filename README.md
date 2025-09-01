@@ -9,7 +9,7 @@ A standardized API approach based on content and prop traits.
 
 ## Overview
 
-ApiThing provides a trait-based framework for building consistent, type-safe APIs using shared contexts and property objects. The framework enables you to define operations that are composable, testable, and maintainable while enforcing consistent patterns across different API families.
+ApiThing provides a trait-based framework for building consistent, type-safe APIs using shared contexts and parameter objects. The framework enables you to define operations that are composable, testable, and maintainable while enforcing consistent patterns across different API families.
 
 ### Key Features
 
@@ -22,11 +22,8 @@ ApiThing provides a trait-based framework for building consistent, type-safe API
 
 ## Installation
 
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-apithing = { git = "https://github.com/swissarmyhammer/apithing" }
+```
+cargo add apithing
 ```
 
 ## Quick Start
@@ -43,17 +40,13 @@ graph TB
     Operation["ApiOperation&lt;C,P&gt;<br/>fn execute()<br/>→ Output<br/>→ Error"]
     Parameters["Parameters (P)<br/>• Input params<br/>• Validation<br/>• Type safety"]
 
-    DatabaseContext["DatabaseContext<br/>• Cache<br/>• Transactions<br/>• Connections"]
     Execute["Execute&lt;C,P&gt;<br/>execute_on()<br/>(ergonomic API)"]
-    Props["User Props<br/>Product Props<br/>Order Props<br/>..."]
 
     ApiExecutor["ApiExecutor&lt;C&gt;<br/>• Stateful<br/>• Context mgmt<br/>• Multi-ops"]
 
     Context --> Operation
     Parameters --> Operation
-    Context --> DatabaseContext
     Operation --> Execute
-    Parameters --> Props
     Execute --> ApiExecutor
 ```
 
