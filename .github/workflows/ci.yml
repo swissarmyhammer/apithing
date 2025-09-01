@@ -7,4 +7,4 @@ on:
 
 jobs:
   call-reusable-workflow:
-    uses: swissarmyhamer/workflows/.github/workflows/ci.yml@main
+    uses: swissarmyhammer/workflows/.github/workflows/ci.yml@main
